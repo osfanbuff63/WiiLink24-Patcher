@@ -902,4 +902,63 @@ class GuiKeyboard : public GuiWindow {
     Key keys[4][11]; // two chars = less space than one pointer
 };
 
+typedef struct _channel {
+  int length;
+  char name[MAX_OPTIONS][50];
+  char slug[MAX_OPTIONS][50];
+  u64 title_id[MAX_OPTIONS];
+  int version[MAX_OPTIONS];
+} Channel;
+
+//!Display a list of menu options
+class GuiOptionBrowser : public GuiElement
+{
+public:
+  GuiOptionBrowser(int w, int h, Channel * l);
+  ~GuiOptionBrowser();
+  void SetCol1Position(int x);
+  int FindMenuItem(int c, int d);
+  int GetClickedOption();
+  void ResetState();
+  void SetFocus(int f);
+  void Draw();
+  void TriggerUpdate();
+  void ResetText();
+  void Update(GuiTrigger * t);
+protected:
+  int optionIndex[PAGESIZE];
+  GuiButton * optionBtn[PAGESIZE];
+  GuiText * optionTxt[PAGESIZE];
+  GuiImage * optionBg[PAGESIZE];
+
+  int selectedItem;
+  int listOffset;
+  Channel * options;
+
+  GuiButton * arrowUpBtn;
+  GuiButton * arrowDownBtn;
+
+  GuiImage * bgOptionsImg;
+  GuiImage * scrollbarImg;
+  GuiImage * arrowDownImg;
+  GuiImage * arrowDownOverImg;
+  GuiImage * arrowUpImg;
+  GuiImage * arrowUpOverImg;
+
+  GuiImageData * bgOptions;
+  GuiImageData * bgOptionsEntry;
+  GuiImageData * scrollbar;
+  GuiImageData * arrowDown;
+  GuiImageData * arrowDownOver;
+  GuiImageData * arrowUp;
+  GuiImageData * arrowUpOver;
+
+  GuiSound * btnSoundOver;
+  GuiSound * btnSoundClick;
+  GuiTrigger * trigA;
+  GuiTrigger * trig2;
+
+  bool listChanged;
+};
+
 #endif

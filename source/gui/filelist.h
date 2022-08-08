@@ -23,6 +23,8 @@
 #include "nl_lang.h"
 
 // Images
+#include "bg_options_entry_png.h"
+#include "bg_options_png.h"
 #include "button_large_over_png.h"
 #include "button_large_png.h"
 #include "button_over_png.h"
@@ -46,5 +48,10 @@
 #include "player3_point_png.h"
 #include "player4_grab_png.h"
 #include "player4_point_png.h"
+#include "scrollbar_png.h"
+#include "scrollbar_arrowdown_png.h"
+#include "scrollbar_arrowdown_over_png.h"
+#include "scrollbar_arrowup_png.h"
+#include "scrollbar_arrowup_over_png.h"
 
 #endif

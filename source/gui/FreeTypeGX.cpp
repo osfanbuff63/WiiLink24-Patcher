@@ -588,7 +588,6 @@ void FreeTypeGX::getOffset(wchar_t *text, ftgxDataOffset *offset) {
     offset->max = strMax;
     offset->min = strMin;
 }
-
 /**
  * Copies the supplied texture quad to the EFB.
  *

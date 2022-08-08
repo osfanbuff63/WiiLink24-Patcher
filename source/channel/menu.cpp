@@ -16,21 +16,16 @@
 #include <iostream>
 #include "gui/gettext.h"
 #include <gccore.h>
+#include <mxml.h>
 #include "download.h"
 #include "main.h"
 #include "menu.h"
-#include <ogc/machine/processor.h>
+#include "catalog.h"
 
 extern "C" {
     #include "wad/wad.h"
 }
 
-bool is_in_vwii() {
-    // Even in vWii mode, 0x0d8005a0 (LT_CHIPREVID) will have its upper
-    // 16 bits set to 0xCAFE. We can compare against this.
-    // See also: https://wiiubrew.org/wiki/Hardware/Latte_registers
-    return read32(0x0d8005a0) >> 16 == 0xCAFE;
-}
 
 #define THREAD_SLEEP 100
 // 48 KiB was chosen after many days of testing.
@@ -48,6 +43,8 @@ static int RegionCode = 0;
 static int LanguageCode = 0;
 static bool isRoom = false;
 static bool isDigicam = false;
+static Channel catalog;
+static Channel language;
 
 tm *getTime() {
     time_t rawtime;
@@ -423,33 +420,12 @@ static int MenuCredits() {
      trigHome.SetButtonOnlyTrigger(
              -1, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0);
 
-     GuiText englishBtnTxt(_("English"), 22, (GXColor){0, 0, 0, 255});
-     englishBtnTxt.SetWrap(true, btnLargeOutline.GetWidth() - 30);
-     GuiImage englishBtnImg(&btnLargeOutline);
-     GuiImage englishBtnImgOver(&btnLargeOutlineOver);
-     GuiButton englishBtn(btnLargeOutline.GetWidth(),
-                          btnLargeOutline.GetHeight());
-     englishBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-     englishBtn.SetPosition(-125, 120);
-     englishBtn.SetLabel(&englishBtnTxt);
-     englishBtn.SetImage(&englishBtnImg);
-     englishBtn.SetImageOver(&englishBtnImgOver);
-     englishBtn.SetTrigger(&trigA);
-     englishBtn.SetEffectGrow();
-
-     GuiText jpnBtnTxt(_("Japanese"), 22, (GXColor){0, 0, 0, 255});
-     jpnBtnTxt.SetWrap(true, btnLargeOutline.GetWidth() - 30);
-     GuiImage jpnBtnImg(&btnLargeOutline);
-     GuiImage jpnImgOver(&btnLargeOutlineOver);
-     GuiButton jpnBtn(btnLargeOutline.GetWidth(),
-                         btnLargeOutline.GetHeight());
-     jpnBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-     jpnBtn.SetPosition(125, 120);
-     jpnBtn.SetLabel(&jpnBtnTxt);
-     jpnBtn.SetImage(&jpnBtnImg);
-     jpnBtn.SetImageOver(&jpnImgOver);
-     jpnBtn.SetTrigger(&trigA);
-     jpnBtn.SetEffectGrow();
+     if (LoadChannelXML(&language) == -1) {
+       ExitApp();
+     }
+     GuiOptionBrowser optionBrowserr(552, 248, &language);
+     optionBrowserr.SetPosition(0, 108);
+     optionBrowserr.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
 
      GuiText backBtnTxt(_("Back"), 22, (GXColor){0, 0, 0, 255});
      GuiImage backBtnImg(&btnOutline);
@@ -466,8 +442,7 @@ static int MenuCredits() {
      HaltGui();
      GuiWindow w(screenwidth, screenheight);
      w.Append(&titleTxt);
-     w.Append(&englishBtn);
-     w.Append(&jpnBtn);
+     w.Append(&optionBrowserr);
 
      w.Append(&backBtn);
      mainWindow->Append(&w);
@@ -480,12 +455,6 @@ static int MenuCredits() {
          if (backBtn.GetState() == STATE_CLICKED) {
              isDigicam = false;
              menu = MENU_PRIMARY;
-         } else if (englishBtn.GetState() == STATE_CLICKED) {
-             LanguageCode = 1;
-             menu = DOWNLOAD_WAD;
-         } else if (jpnBtn.GetState() == STATE_CLICKED) {
-             LanguageCode = 0;
-             menu = DOWNLOAD_WAD;
          }
      }
 
@@ -512,11 +481,7 @@ static int MenuCredits() {
      } else {
          wadFile = "fat:/SPD.wad";
          channelName = "Installing Set Personal Data";
-         if (is_in_vwii()) {
-            channelUrl.append("WiiLink24_SPD_vWii.wad");
-         } else {
-            channelUrl.append("WiiLink24_SPD.wad");
-         }
+         channelUrl.append("WiiLink24_SPD.wad");
      }
 
      int menu = MENU_NONE;
@@ -690,7 +655,7 @@ static int MenuCredits() {
 /****************************************************************************
  * MenuSettings
  ***************************************************************************/
-static int MenuSettings() {
+static int MenuSettings(Channel channel) {
     int menu = MENU_NONE;
 
     GuiText titleTxt(_("WiiLink Patcher"), 28, (GXColor){255, 255, 255, 255});
@@ -709,61 +674,10 @@ static int MenuSettings() {
     trigHome.SetButtonOnlyTrigger(
         -1, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0);
 
-    GuiText roomBtnTxt(_("Wii Room"), 22, (GXColor){0, 0, 0, 255});
-    roomBtnTxt.SetWrap(true, btnLargeOutline.GetWidth() - 30);
-    GuiImage roomBtnImg(&btnLargeOutline);
-    GuiImage roomBtnImgOver(&btnLargeOutlineOver);
-    GuiButton roomBtn(btnLargeOutline.GetWidth(),
-                           btnLargeOutline.GetHeight());
-    roomBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-    roomBtn.SetPosition(-175, 120);
-    roomBtn.SetLabel(&roomBtnTxt);
-    roomBtn.SetImage(&roomBtnImg);
-    roomBtn.SetImageOver(&roomBtnImgOver);
-    roomBtn.SetTrigger(&trigA);
-    roomBtn.SetEffectGrow();
 
-    GuiText digicamBtnTxt(_("Digicam Print Channel"), 22, (GXColor){0, 0, 0, 255});
-    digicamBtnTxt.SetWrap(true, btnLargeOutline.GetWidth() - 30);
-    GuiImage digicamImg(&btnLargeOutline);
-    GuiImage digicamImgOver(&btnLargeOutlineOver);
-    GuiButton digicamBtn(btnLargeOutline.GetWidth(),
-                          btnLargeOutline.GetHeight());
-    digicamBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-    digicamBtn.SetPosition(0, 120);
-    digicamBtn.SetLabel(&digicamBtnTxt);
-    digicamBtn.SetImage(&digicamImg);
-    digicamBtn.SetImageOver(&digicamImgOver);
-    digicamBtn.SetTrigger(&trigA);
-    digicamBtn.SetEffectGrow();
-
-    GuiText spdBtnTxt(_("Set Personal Data"), 22, (GXColor){0, 0, 0, 255});
-    spdBtnTxt.SetWrap(true, btnLargeOutline.GetWidth() - 30);
-    GuiImage spdImg(&btnLargeOutline);
-    GuiImage spdImgOver(&btnLargeOutlineOver);
-    GuiButton spdBtn(btnLargeOutline.GetWidth(),
-                         btnLargeOutline.GetHeight());
-    spdBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-    spdBtn.SetPosition(175, 120);
-    spdBtn.SetLabel(&spdBtnTxt);
-    spdBtn.SetImage(&spdImg);
-    spdBtn.SetImageOver(&spdImgOver);
-    spdBtn.SetTrigger(&trigA);
-    spdBtn.SetEffectGrow();
-
-
-    GuiText creditsBtnTxt(_("Credits"), 22, (GXColor){0, 0, 0, 255});
-    GuiImage creditsBtnImg(&btnLargeOutline);
-    GuiImage creditsBtnImgOver(&btnLargeOutlineOver);
-    GuiButton creditsBtn(btnLargeOutline.GetWidth(),
-                         btnLargeOutline.GetHeight());
-    creditsBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-    creditsBtn.SetPosition(0, 250);
-    creditsBtn.SetLabel(&creditsBtnTxt);
-    creditsBtn.SetImage(&creditsBtnImg);
-    creditsBtn.SetImageOver(&creditsBtnImgOver);
-    creditsBtn.SetTrigger(&trigA);
-    creditsBtn.SetEffectGrow();
+    GuiOptionBrowser optionBrowser(552, 248, &channel);
+    optionBrowser.SetPosition(0, 108);
+    optionBrowser.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
 
     GuiText wiiBtnTxt(_("Wii Menu"), 22, (GXColor){0, 0, 0, 255});
     GuiImage wiiBtnImg(&btnOutline);
@@ -793,11 +707,7 @@ static int MenuSettings() {
     HaltGui();
     GuiWindow w(screenwidth, screenheight);
     w.Append(&titleTxt);
-    w.Append(&roomBtn);
-    w.Append(&digicamBtn);
-    w.Append(&spdBtn);
-    w.Append(&creditsBtn);
-
+    w.Append(&optionBrowser);
     w.Append(&wiiBtn);
     w.Append(&hbcBtn);
 
@@ -808,17 +718,20 @@ static int MenuSettings() {
     while (menu == MENU_NONE) {
         usleep(THREAD_SLEEP);
 
-        if (creditsBtn.GetState() == STATE_CLICKED) {
-            menu = MENU_CREDITS;
-        } else if (roomBtn.GetState() == STATE_CLICKED) {
-            menu = MENU_ROOM_LANGUAGE;
+        int pressed = optionBrowser.GetClickedOption();
+
+        if (pressed != -1) {
+          u16 id = CheckTitleVersion(channel.title_id[pressed]);
+          if (id == channel.version[pressed]) {
+            WindowPrompt("Title already installed", "The selected title is already installed and up to date!", "Back", NULL);
+            continue;
+          }
+
+          menu = MENU_DIGICAM_LANGUAGE;
         } else if (hbcBtn.GetState() == STATE_CLICKED) {
+            menu = MENU_EXIT;
             ExitLULZ();
             ExitOHBC();
-        } else if (digicamBtn.GetState() == STATE_CLICKED) {
-            menu = MENU_DIGICAM_LANGUAGE;
-        } else if (spdBtn.GetState() == STATE_CLICKED) {
-            menu = DOWNLOAD_WAD;
         } else if (wiiBtn.GetState() == STATE_CLICKED) {
             ExitApp();
         }
@@ -854,6 +767,12 @@ void MainMenu(int menu) {
         default:
             printf("Unable to get the region");
             break;
+    }
+
+    // Prepare the catalog
+    int res = LoadCatalog(&catalog);
+    if (res != 0) {
+      ExitApp();
     }
 
     int currentMenu = menu;
@@ -909,7 +828,7 @@ void MainMenu(int menu) {
                 currentMenu = DigicamLangs();
                 break;
             default:
-                currentMenu = MenuSettings();
+                currentMenu = MenuSettings(catalog);
                 break;
         }
 

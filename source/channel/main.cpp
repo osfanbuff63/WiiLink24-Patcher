@@ -98,7 +98,6 @@ int main(void) {
     InitFreeType((u8 *)noto_sans_jp_regular_otf, noto_sans_jp_regular_otf_size);
     InitGUIThreads();
 
-
     MainMenu(1);
 
     return 0;
